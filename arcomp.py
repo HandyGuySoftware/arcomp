@@ -1,11 +1,14 @@
-# # arcomp.py - Python program to compare the results of two autoruns executions to find changes in autoruns entries on Windows systems
-# # Based on Autoruns for Widows by Mark Russinovich on Windows Sysinternals
+######
+#
+# Program name: arcomp.py
+# Purpose:      Compare the results of two autoruns executions to find changes in autoruns entries on Windows systems
+#               Based on Autoruns for Widows by Mark Russinovich on Windows Sysinternals
+# Author:       Stephen Fried for Handy Guy Software
+# Copyright:    2022, release under MIT license. See LICENSE file for details
+# 
+#####
 
-# To Do
-# - Better error handling
-# Test syslog better
-
-# Library imports
+# Import system modules
 import configparser
 from configparser import SafeConfigParser
 import argparse
@@ -34,17 +37,19 @@ from logging.handlers import SysLogHandler
 version = ['1.0.0','Beta 1']
 gitSourceUrl = 'https://github.com/HandyGuySoftware/arcomp'
 
+# Global error and exit handler
 def oops(msg):
     print(msg, file=sys.stderr)
     db.dbRollback()
     db.dbClose()
     exit(1)
 
+# Class to manage .ini file handling
 class IniOptions:
     iniParser = None
 
     def __init__(self, iniPath):
-        # First, see if the database is there. If not, need to create it
+        # First, see if the .ini file is there. If not, need to create it
         self.openIniFile(iniPath);
         return None
 
@@ -56,6 +61,7 @@ class IniOptions:
             return False
         return True
 
+    # Retrieve an individial value from '[secton] option='
     def getIniOption(self, section, option):
         if self.iniParser.has_option(section, option):
             opt = self.iniParser.get(section, option)
@@ -66,11 +72,13 @@ class IniOptions:
         else:
             return None
 
+    # Return an entire [section] from the .ini file as a dictionary
     def getIniSection(self, section):
         return dict(self.iniParser.items(section))
 
+# SQLite database management class
 class Database:
-    dbConn = None
+    dbConn = None   # atabase connection
     def __init__(self, dbPath):
         self.dbConn = sqlite3.connect(dbPath)   # Connect to database
         return None
@@ -82,46 +90,53 @@ class Database:
         self.dbConn = None
         return None
 
-    # Clear database
+    # Initialize database, if needed
     def dbSetup(self):
-
-        # Get count of tables named 'history.' If the count is not 1, then the table doesn't exist, create it
+        # Get count of tables named 'history.' If the count is not 1, then the table doesn't exist, so create it
         curs = self.dbConn.cursor()
         curs.execute("SELECT count(name) FROM sqlite_master WHERE type='table' AND name='history'")
-        if curs.fetchone()[0]!=1:
+        
+        # (Re)build the history table. The fields here need to be named specifically, 
+        #   as there is no way to automatically extract field names from a table that does not yet exist (see comment in self.getTableFieldNames()
+        if curs.fetchone()[0] !=1:
             self.execSqlStmt('CREATE TABLE "history" ( `run_id` TEXT, `action` TEXT, `keyword` TEXT, `time` TEXT, `location` TEXT, `entry` TEXT, \
                 `enabled` TEXT, `category` TEXT, `profile` TEXT, `description` TEXT, `signer` TEXT, `company` TEXT, `imagepath` TEXT, `version` TEXT, \
                 `launchstring` TEXT, `vtdetection` TEXT, `vtpermalink` TEXT, `md5` TEXT, `sha1` TEXT, `pesha1` TEXT, `pesha256` TEXT, `sha256` TEXT, `imp` TEXT)')
         self.dbCommit()
         return None
 
-    # Commit pending database transaction
+    # Commit pending database transactions
     def dbCommit(self):
         if self.dbConn:     # Don't try to commit to a nonexistant connection
             self.dbConn.commit()
         return None
 
+    # Rollback database transactions. 
+    # Used in case there is an error in processing, so we can leave the database the way we found it.
     def dbRollback(self):
         if self.dbConn:
             self.dbConn.rollback()
         return None
 
-    # Execute a Sqlite command and manage exceptions
+    # Execute a SQLite command and manage exceptions
     # Return the cursor object to the command result
+    # stmt = SQL statement to execute
+    # values = tuple to use if the stmt is in the form 'UPDATE table (flds,...) VALUES (?, ?, ?....)
     def execSqlStmt(self, stmt, values = None):
-        if not self.dbConn:
+        if not self.dbConn:     # Don't execute against a non-existant db connection
             return None
-
         # Set db cursor
-        if values is None:
+        if values is None:                  # Somple SQL statement
             curs = self.dbConn.cursor()
             curs.execute(stmt)
-        else:
+        else:                               # Values-based update
             self.dbConn.execute(stmt, values)
             curs = None
-       
         return curs
 
+    # Retrieve the field names from a specific table
+    # This is used so that the code does not have to be manually updated in the event the field configuration changes
+    # Except that the fields DO need to be manually updated in self.dbSetup(), as you can't extract fields from a table that doesn't exist.
     def getTableFieldNames(self, table):
         result = {}
         db.row_factory = sqlite3.Row
@@ -131,17 +146,17 @@ class Database:
 
         return flds
 
+# Process command line arguments
 def processCmdLineArgs():
     # Parse command line options with ArgParser library
     argParser = argparse.ArgumentParser(description='arcomp options.')
 
-    argParser.add_argument("-f","--file", help="Specify the .csv file to load into system.", action="store")
-    argParser.add_argument("-w","--write", help="Write output to a file. Format for argument is '-w <fname>,<type>'. Valid types are 'text', 'html', 'csv', and 'json'", action="append")
-    argParser.add_argument("-e","--email", help="Send result to an email account. Make sure the [email] secition of te arcomp.ini file is filled in properly", action="store_true")
-    argParser.add_argument("-s","--syslog", help="Send output to syslog server", action="store")
-    argParser.add_argument("-x","--xfile", help="Hidden option: process an individual file manually", action="store")
-    argParser.add_argument("-c", "--content", type=str, help="Specify sections to report ('a'dd, 'r'emove, or 's'ame)")
-    argParser.add_argument("-r", "--runhistory", help="Print full execution history", action="store_true")
+    argParser.add_argument("-f","--file", help="Specify a .csv file to load into system. Must be created using 'autorunsc.exe -a * -c -h -s -u -v -vt -o <filename>'", action="store")
+    argParser.add_argument("-w","--write", help="Write report output to a file. Format for argument is '-w <fname>,<type>'. Valid types are 'text', 'html', 'csv', and 'json'", action="append")
+    argParser.add_argument("-e","--email", help="Send report to an email account. Make sure the [email] section of the arcomp.ini file is filled in properly.", action="store_true")
+    argParser.add_argument("-s","--syslog", help="Send output to syslog server. Format is '-s <IP address or DNS name>[:port]'. Default port is 514", action="store")
+    argParser.add_argument("-c", "--content", type=str, help="Specify sections to include in the report ('a'dd, 'r'emove, or 's'ame)")
+    argParser.add_argument("-r", "--runhistory", help="Print full history of autorunsc results.", action="store_true")
     argParser.add_argument("-R", "--runremove", help="Remove a specific <run_id> from the database.", action="store")
     try:
         cmdLineArgs = argParser.parse_args()
@@ -149,24 +164,29 @@ def processCmdLineArgs():
         oops("Command line parsing exception.")
     return cmdLineArgs
 
+# Load data from AutoRuns execution and add it to the database
 def loadAutoRunData(options):
+
+    # Load data lines from file, in .csv format
     with open(options['file']) as f:
         reader = csv.reader(f)
         for row in reader:
             if row[0] == 'Time':  # Skip header row
                 continue
 
+            # Create the field and values list for the impending SQLite INSERT call.
             fldlist = ''
             vallist = ''
-            for fld in options['dbfields']:
+            for fld in options['dbfields']:     # Run through each field in the history table
                 fldlist += '{},'.format(fld)
                 vallist += '?,'
             fldlist = fldlist[:-1]      # Remove trailing ','
             vallist = vallist[:-1]      # Remove trailing ','
 
-            #sqlStmt = "INSERT INTO history ({}) VALUES (\'{}\', \'{}\', {})".format(fldlist, options['run_id'],row[1]+'-'+row[2], vallist)
             sqlStmt = "INSERT INTO history ({}) VALUES ({})".format(fldlist,vallist)
 
+            # Create the tuple needed for the 'VALUES' sectiokn of the SQL statement
+            # The 'keyword' field in the table is a unique key, a concatenation of the 'location' and 'entry' fields
             rowTup = (options['run_id'],'', row[1]+'-'+row[2]) + tuple(row)
             if len(rowTup) < len(options['dbfields']): # need to pad fields
                 for j in range(len(options['dbfields']) - len(rowTup)):
@@ -174,6 +194,7 @@ def loadAutoRunData(options):
             db.execSqlStmt(sqlStmt, rowTup)
     return None
 
+# Get the last run_id stored in the system. This is used to extract data from the last run to compare against the current run
 def getLastRunId():
     curs = db.execSqlStmt('SELECT DISTINCT run_id FROM history ORDER BY run_id DESC LIMIT 0,1')
     lastRunId = curs.fetchone()
@@ -182,6 +203,7 @@ def getLastRunId():
     else:
         return lastRunId[0]
 
+# This is where the sausage is made. Run comparisions between the current run and last run data, looking for what's been added, removed, and left the same
 def compareAutoRunData(options):
     lastRunId = options['last_runid']
 
@@ -189,16 +211,20 @@ def compareAutoRunData(options):
     if options['last_runid'] == '':
         curs = db.execSqlStmt("UPDATE history SET action='ADDED' WHERE run_id = '{}'".format(options['run_id']))
     else:
+        # Get rows where an entry is in the current run but not in the last run
         curs = db.execSqlStmt("SELECT DISTINCT keyword FROM history WHERE run_id == '{}' and keyword NOT IN (SELECT DISTINCT keyword FROM history WHERE run_id == '{}')".format(options['run_id'], options['last_runid']))
         distinctRows = curs.fetchall()
         if len(distinctRows) != 0:
             for keyword in distinctRows:
+                # Set the action for that row to 'ADDED'
                 curs = db.execSqlStmt("UPDATE history SET action='ADDED' where run_id='{}' and keyword='{}'".format(options['run_id'],keyword[0]))
 
-    # See what was deleted since the last run
-    # HOWEVER, if something was deleted in the last run, a 'REMOVED' record was added to that run. 
-    #   The record still won't show up in this run and will again have another 'REMOVED' record added, unless we strp in to stop this tragedy.
+    # See what was deleted since the last run (an entry is in the last run but not in the current run)
+    # HOWEVER, if something was detected as deleted in the last run, a 'REMOVED' record was added to that run, creating a phantom record for an item that really wasn't found during the run.
+    #   That new REMOVED record will show up here in last_run, but not in the current_run. Normally this would generate another REMOVED record, unless we step in to stop the madness.
     if options['last_runid'] != '':             # if last_runid == '', this is the first run. There's nothing that can be deleted.
+    
+        # Create a temporary table to hold the changed data, then copy that table back into the history table.
         curs = db.execSqlStmt("CREATE TEMPORARY TABLE tmphistory AS SELECT * FROM history WHERE run_id == '{}' AND action != 'REMOVED' \
             AND keyword NOT IN \
                 (SELECT DISTINCT keyword FROM history WHERE run_id == '{}')".format(options['last_runid'], options['run_id']))
@@ -206,11 +232,12 @@ def compareAutoRunData(options):
         curs = db.execSqlStmt("INSERT INTO history SELECT * FROM tmphistory")
         curs = db.execSqlStmt("DROP TABLE IF EXISTS tmphistory")
 
-    # See what's the same since the last run
+    # See what's the same since the last run. Basically, whatever is not tagged as 'ADDED' or 'REMOVED' is tagged as 'SAME'.
     if options['last_runid'] != '':             # if last_runid == '', this is the first run. There's nothing that's the same.
         curs = db.execSqlStmt("UPDATE history SET action='SAME' WHERE run_id='{}' and action IS ''".format(options['run_id']))
     return
 
+# Generate a dictionary from a list of fields returned form an SQL query
 def generateDictFromSql(sql):
     result = {}
     db.row_factory = sqlite3.Row
@@ -224,6 +251,7 @@ def generateDictFromSql(sql):
 
     return flds, result
 
+# Generate dictionaries for the three types of results ('ADDED', 'REMOVED', and 'SAME')
 def generateReport(options):
     rptOutput = {
         'added': {
@@ -240,33 +268,35 @@ def generateReport(options):
             }
         }
     
+    # For each type of result, select from the history table with the current run_id and action='<whatever>'
     rptOutput['added']['fieldnames'], rptOutput['added']['result'] = generateDictFromSql("SELECT * FROM history WHERE run_id='{}' and action='ADDED'".format(options['run_id']))
     rptOutput['removed']['fieldnames'], rptOutput['removed']['result'] = generateDictFromSql("SELECT * FROM history WHERE run_id='{}' and action='REMOVED'".format(options['run_id']))
     rptOutput['same']['fieldnames'], rptOutput['same']['result'] = generateDictFromSql("SELECT * FROM history WHERE run_id='{}' and action='SAME'".format(options['run_id']))
-
     return rptOutput
 
+# Build an HTML-style output
+# The resulting report output is modified based on the select of desired fields in the [fields] section of the .ini file
+# NOTE: comments in this function also work for buildText() and buildCSV()
 def buildHTML(data, options):
-
     html = "<table border=1>"
-    if 'a' in options['content']:
-        html += "<tr><td colspan = {} align=center> <b>Entries Added</b></td></tr>\n".format(len(options['reportfields']))
-        if len(data['added']['result']) == 0:
+    if 'a' in options['content']:   # -c command line option
+        html += "<tr><td colspan = {} align=center> <b>Entries Added</b></td></tr>\n".format(len(options['reportfields']))      # Title
+        if len(data['added']['result']) == 0:  
             html += "<tr><td colspan = {} align=center>(None)</td></tr>".format(len(options['reportfields']))
-        else:
+        else:                                                                                                                   # Column headings
             html+= "<tr>"
             for i in range(len(data['added']['fieldnames'])):
-                if data['added']['fieldnames'][i] in options['reportfields']:
+                if data['added']['fieldnames'][i] in options['reportfields']:                                                   # Only add a column if it's specified in the .ini file  
                     html += "<th>{}</th>".format(data['added']['fieldnames'][i])
             html += "</tr>\n"
             for key, values in data['added']['result'].items():
                 html += "<tr>"
-                for i in range(len(data['added']['fieldnames'])):
+                for i in range(len(data['added']['fieldnames'])):                                                               # Only add a column if it's specified in the .ini file 
                     if data['added']['fieldnames'][i] in options['reportfields']:
                         html += '<td>{}</td>'.format(values[data['added']['fieldnames'][i]])
                 html += '</tr>\n'
    
-    if 'r' in options['content']:
+    if 'r' in options['content']:    # -c command line option
         html += "<tr><td colspan = {} align=center> <b>Entries Removed</b></td></tr>\n".format(len(options['reportfields']))
         if len(data['removed']['result']) == 0:
             html += "<tr><td colspan = {} align=center>(None)</td></tr>".format(len(options['reportfields']))
@@ -386,6 +416,7 @@ def buildCSV(data, options):
     text += '\nReport generated by arcomp ({}) Version {} ({})\n'.format(gitSourceUrl, version[0], version[1])
     return text
 
+# Write the output report(s) to files, if specified on the command line
 def writeFiles(data, options):
     for item in options['write'].items():
         if item[1] == 'text':                   # Convert to text
@@ -404,6 +435,7 @@ def writeFiles(data, options):
             json.dump(output, outfile)
         outfile.close()
 
+# Send the report out via email
 def sendEmail(data, options, inifile):
     try:
         serverconnect = smtplib.SMTP(options['email']['server'],options['email']['port'])
@@ -412,14 +444,15 @@ def sendEmail(data, options, inifile):
                 tlsContext = ssl.create_default_context()
                 serverconnect.starttls(context=tlsContext)
             except Exception as e:
-                exit(1)
+                oops("TLS initiation errror")
         try:
             pw = iniFile.getIniOption('email','password')
             retVal, retMsg = serverconnect.login(options['email']['account'], pw)  # Get password live so it's not stored in memory long-term
         except:
-            e = sys.exc_info()[0]
+            oops("Server login error")
     except (smtplib.SMTPAuthenticationError, smtplib.SMTPConnectError, smtplib.SMTPSenderRefused):
         e = sys.exc_info()[0]
+        oops("Server authentication error")
 
     # Build email message
     msg = MIMEMultipart('alternative')
@@ -449,6 +482,9 @@ def sendEmail(data, options, inifile):
     serverconnect.send_message(msg, options['email']['sender'], options['email']['receiver'])
     return None
 
+# Send report data to syslog.
+# Fields are prer-selected here, not based on the [fields] section of the .ini file
+# See the documentation for an approproate GROK pattern to use with your syslog or SIEM system.
 def sendSyslog(data, options):
     try:
         logger = logging.getLogger()
@@ -488,6 +524,7 @@ def printHistory():
         print("{}   ({}-{}-{}  {}:{}:{}.{})".format(id, id[0:4], id[4:6], id[6:8], id[9:11], id[11:13], id[13:15], id[16:]))
     return
 
+# Print the full arcomp run history, including run_ids and dates. Used to find a specific run_id to delete from the database with the -R option
 def deleteRunID(runid):
     curs = db.execSqlStmt("SELECT run_id FROM history WHERE run_id = '{}'".format(runid))
     result = curs.fetchall()
@@ -497,7 +534,6 @@ def deleteRunID(runid):
 
     curs = db.execSqlStmt("DELETE FROM history WHERE run_id = '{}'".format(runid))
     result = curs.fetchall()
-
     return None
 
 ##### Let's Go! #####
@@ -523,7 +559,7 @@ if __name__ == "__main__":
     progArgs = processCmdLineArgs()
     options['file'] = progArgs.file
 
-    if progArgs.write is not None:      # output files specified.
+    if progArgs.write is not None:      # output files specified on the command line
         options['write'] = {}
         for i in range(len(progArgs.write)):
             fname,type = progArgs.write[i].split(",")                   # Exception check Here
@@ -541,7 +577,8 @@ if __name__ == "__main__":
         else:
             options['syslog']['port'] = int(syslogspec[1])
 
-    if progArgs.content is None:
+    # Check if limiting the added, removed, or same seciotns in the report
+            if progArgs.content is None:
         options['content'] = 'ars'
     else:
         for i in range(len(progArgs.content)):
@@ -551,6 +588,7 @@ if __name__ == "__main__":
         options['content'] = progArgs.content
 
     # Check for email options
+    # The password is not read until the email is being sent, to limit the amount of time it is in memory.
     options['email'] = {}
     options['email']['send'] = progArgs.email
     if options['email']['send'] is True:
@@ -558,7 +596,6 @@ if __name__ == "__main__":
         options['email']['port'] = iniFile.getIniOption('email','port')  
         options['email']['encryption'] = iniFile.getIniOption('email','encryption')  
         options['email']['account'] = iniFile.getIniOption('email','account')  
-        #options['email']['password'] = iniFile.getIniOption('email','password')  
         options['email']['sender'] = iniFile.getIniOption('email','sender')  
         options['email']['sendername'] = iniFile.getIniOption('email','sendername')  
         options['email']['receiver'] = iniFile.getIniOption('email','receiver')  
@@ -616,4 +653,3 @@ if __name__ == "__main__":
     db.dbCommit()
     db.dbClose()
 
-    exit(0)
