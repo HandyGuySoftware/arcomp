@@ -127,3 +127,24 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+arcomp.ini
+arcomp.pyproj
+arcomp.pyproj.user
+arcomp.sln
+arcompattachment.html
+arcompdata.db
+aroutput.csv
+autoruns-20220105154710.csv.XXX
+autoruns-20220105155738.csv
+autoruns-20220105162730.csv
+autoruns-20220107075809.csv
+autoruns-20220205203911.csv.XXX
+outfile.csv
+outfile.html
+outfile.json
+outfile.txt
+.vs/arcomp/v16/.suo
+production/arcomp.ini
+production/arcompdata.db
+production/arcomp.ini.EXAMPLE
+production/arcomp.py
