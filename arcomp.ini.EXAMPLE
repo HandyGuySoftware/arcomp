@@ -1,0 +1,40 @@
+[main]
+autorunspath=C:\Path\to\autorunsc.exe\autorunsc.exe
+datapath = C:\Path\to\arcomp\data\storage
+
+[email]
+server = smtp.gmail.com
+port = 587
+encryption = tls
+account = youraccount@gmail.com
+password = yourpassword
+sender = youraccount@gmail.com
+sendername = Arcomp Report Service
+receiver = youraccount@gmail.com
+authentication = basic
+subject = AutoRuns Comparison Report
+
+[fields]
+run_id = True
+action = True
+time = True
+location = True
+entry = True
+enabled = True
+category = True
+profile = True
+description = True
+signer = 
+company = 
+imagepath = True
+version = 
+launchstring = True
+vtdetection = 
+vtpermalink = 
+md5 = 
+sha1 = 
+pesha1 = 
+pesha256 = 
+sha256 = 
+imp = 
+
