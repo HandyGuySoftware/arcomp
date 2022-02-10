@@ -617,6 +617,3 @@ if __name__ == "__main__":
     db.dbClose()
 
     exit(0)
-
-
-
