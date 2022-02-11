@@ -4,7 +4,6 @@
 # Purpose:      Compare the results of two autoruns executions to find changes in autoruns entries on Windows systems
 #               Based on Autoruns for Widows by Mark Russinovich on Windows Sysinternals
 # Author:       Stephen Fried for Handy Guy Software
-# Copyright:    2022, release under MIT license. See LICENSE file for details
 # 
 #####
 
@@ -36,6 +35,7 @@ from logging.handlers import SysLogHandler
 # Global program info. Do Not Change.
 version = ['1.0.0','Beta 1']
 gitSourceUrl = 'https://github.com/HandyGuySoftware/arcomp'
+copyright = 'Copyright (c) 2022 Stephen Fried for Handy Guy Software. Released under MIT license. See LICENSE file for details'
 
 # Global error and exit handler
 def oops(msg):
@@ -446,8 +446,8 @@ def sendEmail(data, options, inifile):
             except Exception as e:
                 oops("TLS initiation errror")
         try:
-            pw = iniFile.getIniOption('email','password')
-            retVal, retMsg = serverconnect.login(options['email']['account'], pw)  # Get password live so it's not stored in memory long-term
+            pw = iniFile.getIniOption('email','password')                               # Get password now so it's not stored in memory long-term
+            retVal, retMsg = serverconnect.login(options['email']['account'], pw)  
         except:
             oops("Server login error")
     except (smtplib.SMTPAuthenticationError, smtplib.SMTPConnectError, smtplib.SMTPSenderRefused):
@@ -516,6 +516,7 @@ def sendSyslog(data, options):
     handler.close
     return None
 
+# Print the full arcomp run history, including run_ids and dates. Used to find a specific run_id to delete from the database with the -R option
 def printHistory():
     curs = db.execSqlStmt("SELECT DISTINCT run_id FROM history ORDER BY run_id ASC")
     runids = curs.fetchall()
@@ -524,7 +525,6 @@ def printHistory():
         print("{}   ({}-{}-{}  {}:{}:{}.{})".format(id, id[0:4], id[4:6], id[6:8], id[9:11], id[11:13], id[13:15], id[16:]))
     return
 
-# Print the full arcomp run history, including run_ids and dates. Used to find a specific run_id to delete from the database with the -R option
 def deleteRunID(runid):
     curs = db.execSqlStmt("SELECT run_id FROM history WHERE run_id = '{}'".format(runid))
     result = curs.fetchall()
@@ -546,6 +546,7 @@ if __name__ == "__main__":
     options['run_id'] = datetime.now().strftime("%Y%m%d-%H%M%S-%f") # Each run gets its own run identifier. All entries from the same run have the same run_id.
     options['version'] = version
     options['gitSourceUrl'] = gitSourceUrl
+    options['copyright'] = copyright
 
     # Open and read the .ini file
     iniFile = IniOptions(options['progpath'] + '\\arcomp.ini')              # Class to handle .ini file operations
@@ -578,7 +579,7 @@ if __name__ == "__main__":
             options['syslog']['port'] = int(syslogspec[1])
 
     # Check if limiting the added, removed, or same seciotns in the report
-            if progArgs.content is None:
+    if progArgs.content is None:
         options['content'] = 'ars'
     else:
         for i in range(len(progArgs.content)):
@@ -589,18 +590,9 @@ if __name__ == "__main__":
 
     # Check for email options
     # The password is not read until the email is being sent, to limit the amount of time it is in memory.
-    options['email'] = {}
+    options['email'] = iniFile.getIniSection('email')
     options['email']['send'] = progArgs.email
-    if options['email']['send'] is True:
-        options['email']['server'] = iniFile.getIniOption('email','server')  
-        options['email']['port'] = iniFile.getIniOption('email','port')  
-        options['email']['encryption'] = iniFile.getIniOption('email','encryption')  
-        options['email']['account'] = iniFile.getIniOption('email','account')  
-        options['email']['sender'] = iniFile.getIniOption('email','sender')  
-        options['email']['sendername'] = iniFile.getIniOption('email','sendername')  
-        options['email']['receiver'] = iniFile.getIniOption('email','receiver')  
-        options['email']['authentication'] = iniFile.getIniOption('email','authentication') 
-        options['email']['subject'] = iniFile.getIniOption('email','subject') 
+    options['email']['password'] = None                 # Do not store password until it's necessary to send email
 
     # Open and prep database
     db = Database(options['datapath'] + '\\arcompdata.db')
@@ -624,7 +616,7 @@ if __name__ == "__main__":
 
     # Are we processing a command-line file or letting autorunsc.exe do its thing?
     if options['file'] is None:                 # There's no specific file to process. Execute autorunsc.exe and collect output file
-        cmdline = '\"\"{}\" -a * -c -h -s -u -v -vt -o \"\"{}\\aroutput.csv\"'.format(options['autorunspath'],options['datapath'])  
+        cmdline = '\"\"{}\" -a * -c -h -s -v -vt -o \"\"{}\\aroutput.csv\" -nobanner'.format(options['autorunspath'],options['datapath'])  
         result = os.system(cmdline)
         options['file'] = '{}\\aroutput.csv'.format(options['datapath'])
 
@@ -649,7 +641,7 @@ if __name__ == "__main__":
     if progArgs.syslog is not None:
         sendSyslog(reportData, options)
 
-    # Close database and exit``
+    # Close database and exit
     db.dbCommit()
     db.dbClose()
 
