@@ -14,7 +14,7 @@ Arcomp is a Python script that is used in conjunction with the [Autoruns utility
 
 - arcomp.py - The Python script that performs the Autoruns analysis
 - arcomp.ini.EXAMPLE - An example initialization file that provides runtime information for arcomp. See the *arcomp.ini File* section below for more details.
-- arclaunch.bat - A Windows batch script that executes arcomp with appropriate parameters. This can be useful if setting up arcomp under the Windows Task Scheduler, so that you can instruct Task Scheduler to simply execute the batch script rather than coding the arcomp parameters into the Task Scheduler options.
+- arclaunch.bat.EXAMPLE - An example Windows batch script that executes arcomp.py with appropriate parameters. This can be useful if setting up arcomp under the Windows Task Scheduler, so that you can instruct Task Scheduler to simply execute the batch script rather than coding the arcomp parameters into the Task Scheduler options.
 
 # Installing arcomp
 
@@ -24,6 +24,7 @@ To install arcomp, do the following:
 2. Download and install Autoruns on your Windows computer. Instructions are [here](https://docs.microsoft.com/en-us/sysinternals/downloads/autoruns).
 3. Clone the [arcomp GitHub repository](https://github.com/HandyGuySoftware/arcomp) or download the files to a directory on your local Windows machine.
 4. Copy the arcomp.ini.EXAMPLE file to arcomp.ini and edit the options as appropriate
+4. (Optional) Copy the arclaunch.bat.EXAMPLE file to arclaunch.bat and edit the options at the top of the file as appropriate
 5. Run arcomp.py using the appropriate command line options. Alternately, modify the arclaunch.bat file with the appropriate options and use it to run arcomp.
 
 # Usage
@@ -81,7 +82,7 @@ This GROK string has been tested and used on an Elastic (ELK) stack. Some modifi
 
 # Known Issues and Limitations
 
-- Error handling is limited and sketchy. This will improve as the code matures.
+- Error handling and logging is limited and sketchy. This will improve as the code matures.
 - The program puts out a high volume of syslog messages in a short period of time. This may overwhelm slower syslog/SIEM servers and  messages may get dropped. Some sort of rate limiting function may be added in the future.
 
 # Distribution, Support, and Feedback
