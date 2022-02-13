@@ -39,10 +39,37 @@ copyright = 'Copyright (c) 2022 Stephen Fried for Handy Guy Software. Released u
 
 # Global error and exit handler
 def oops(msg):
-    print(msg, file=sys.stderr)
-    db.dbRollback()
-    db.dbClose()
+    sys.stderr.write(msg)
+    if 'db' in vars():
+        db.dbRollback()
+        db.dbClose()
+    if 'log' in vars():
+        log.logClose()
     exit(1)
+
+class Logger:
+    logfile = None
+
+    def __init__(self, fname):
+        try:
+            self.logfile = open(fname,'a')
+            self.logWrite("Arcomp logfile - open")
+        except (OSError, IOError):
+            e = sys.exc_info()[0]
+            sys.stderr.write('Error opening log file {}: {}\n'.format(fname, e))
+            oops("Log file open error")
+        return None
+
+    def logWrite(self, msg):
+        if self.logfile is not None:
+            self.logfile.write('[{}][run_id:{}][DEBUG] {}\n'.format(datetime.now().isoformat(), options['run_id'], msg))
+        return None
+
+    def logClose(self):
+        if logfile is not None:
+            self.logfile.close()
+        logfile = None
+        return None
 
 # Class to manage .ini file handling
 class IniOptions:
@@ -166,7 +193,8 @@ def processCmdLineArgs():
 
 # Load data from AutoRuns execution and add it to the database
 def loadAutoRunData(options):
-
+    progLog.logWrite('Loading Autoruns data from file {}'.format(options['file']))
+                     
     # Load data lines from file, in .csv format
     with open(options['file']) as f:
         reader = csv.reader(f)
@@ -185,12 +213,13 @@ def loadAutoRunData(options):
 
             sqlStmt = "INSERT INTO history ({}) VALUES ({})".format(fldlist,vallist)
 
-            # Create the tuple needed for the 'VALUES' sectiokn of the SQL statement
+            # Create the tuple needed for the 'VALUES' section of the SQL statement
             # The 'keyword' field in the table is a unique key, a concatenation of the 'location' and 'entry' fields
             rowTup = (options['run_id'],'', row[1]+'-'+row[2]) + tuple(row)
             if len(rowTup) < len(options['dbfields']): # need to pad fields
                 for j in range(len(options['dbfields']) - len(rowTup)):
                     rowTup += ('',)
+            progLog.logWrite("Inserting new record: [{}]".format(row[1]+'-'+row[2]))
             db.execSqlStmt(sqlStmt, rowTup)
     return None
 
@@ -198,6 +227,7 @@ def loadAutoRunData(options):
 def getLastRunId():
     curs = db.execSqlStmt('SELECT DISTINCT run_id FROM history ORDER BY run_id DESC LIMIT 0,1')
     lastRunId = curs.fetchone()
+    progLog.logWrite("Retrieved last run_id: [{}]".format(lastRunId))
     if lastRunId is None:       # Empty DB - no last run_id available
         return ''
     else:
@@ -205,12 +235,15 @@ def getLastRunId():
 
 # This is where the sausage is made. Run comparisions between the current run and last run data, looking for what's been added, removed, and left the same
 def compareAutoRunData(options):
+    progLog.logWrite("Comparing Autorun data: [{}] vs [{}]".format(options['run_id'], options['last_runid']))
     lastRunId = options['last_runid']
 
     # if last_runid == '', this is the first run. Everything gets added.
     if options['last_runid'] == '':
+        progLog.logWrite("No last_runid. First time run. Everything gets added.")
         curs = db.execSqlStmt("UPDATE history SET action='ADDED' WHERE run_id = '{}'".format(options['run_id']))
     else:
+        progLog.logWrite("Noting ADDED entries.")
         # Get rows where an entry is in the current run but not in the last run
         curs = db.execSqlStmt("SELECT DISTINCT keyword FROM history WHERE run_id == '{}' and keyword NOT IN (SELECT DISTINCT keyword FROM history WHERE run_id == '{}')".format(options['run_id'], options['last_runid']))
         distinctRows = curs.fetchall()
@@ -223,7 +256,7 @@ def compareAutoRunData(options):
     # HOWEVER, if something was detected as deleted in the last run, a 'REMOVED' record was added to that run, creating a phantom record for an item that really wasn't found during the run.
     #   That new REMOVED record will show up here in last_run, but not in the current_run. Normally this would generate another REMOVED record, unless we step in to stop the madness.
     if options['last_runid'] != '':             # if last_runid == '', this is the first run. There's nothing that can be deleted.
-    
+        progLog.logWrite("Noting REMOVED entries.")
         # Create a temporary table to hold the changed data, then copy that table back into the history table.
         curs = db.execSqlStmt("CREATE TEMPORARY TABLE tmphistory AS SELECT * FROM history WHERE run_id == '{}' AND action != 'REMOVED' \
             AND keyword NOT IN \
@@ -234,11 +267,14 @@ def compareAutoRunData(options):
 
     # See what's the same since the last run. Basically, whatever is not tagged as 'ADDED' or 'REMOVED' is tagged as 'SAME'.
     if options['last_runid'] != '':             # if last_runid == '', this is the first run. There's nothing that's the same.
+        progLog.logWrite("Noting SAME entries.")
         curs = db.execSqlStmt("UPDATE history SET action='SAME' WHERE run_id='{}' and action IS ''".format(options['run_id']))
     return
 
 # Generate a dictionary from a list of fields returned form an SQL query
 def generateDictFromSql(sql):
+    progLog.logWrite("generateDictFromSql(\'{}\')".format(sql))
+
     result = {}
     db.row_factory = sqlite3.Row
     curs = db.execSqlStmt(sql)
@@ -253,6 +289,7 @@ def generateDictFromSql(sql):
 
 # Generate dictionaries for the three types of results ('ADDED', 'REMOVED', and 'SAME')
 def generateReport(options):
+    progLog.logWrite("Generating reports.")
     rptOutput = {
         'added': {
             'name': 'added',
@@ -280,6 +317,7 @@ def generateReport(options):
 def buildHTML(data, options):
     html = "<table border=1>"
     if 'a' in options['content']:   # -c command line option
+        progLog.logWrite("Generating HTML output - ADDED.")
         html += "<tr><td colspan = {} align=center> <b>Entries Added</b></td></tr>\n".format(len(options['reportfields']))      # Title
         if len(data['added']['result']) == 0:  
             html += "<tr><td colspan = {} align=center>(None)</td></tr>".format(len(options['reportfields']))
@@ -297,6 +335,7 @@ def buildHTML(data, options):
                 html += '</tr>\n'
    
     if 'r' in options['content']:    # -c command line option
+        progLog.logWrite("Generating HTML output - REMOVED.")
         html += "<tr><td colspan = {} align=center> <b>Entries Removed</b></td></tr>\n".format(len(options['reportfields']))
         if len(data['removed']['result']) == 0:
             html += "<tr><td colspan = {} align=center>(None)</td></tr>".format(len(options['reportfields']))
@@ -314,6 +353,7 @@ def buildHTML(data, options):
                 html += '</tr>\n'
    
     if 's' in options['content']:
+        progLog.logWrite("Generating HTML output - SAME.")
         html += "<tr><td colspan = {} align=center> <b>Entries Unchanged</b></td></tr>\n".format(len(options['reportfields']))
         if len(data['same']['result']) == 0:
             html += "<tr><td colspan = {} align=center>(None)</td></tr>".format(len(options['reportfields']))
@@ -334,9 +374,11 @@ def buildHTML(data, options):
     return html
 
 def buildText(data, options):
+    text = ''
 
     if 'a' in options['content']:
-        text = "Entries Added\n"
+        progLog.logWrite("Generating Text output - ADDED.")
+        text += "Entries Added\n"
         for i in range(len(data['added']['fieldnames'])):
             if data['added']['fieldnames'][i] in options['reportfields']:
                 text += data['added']['fieldnames'][i] + ' | '
@@ -348,6 +390,7 @@ def buildText(data, options):
             text += '\n'
 
     if 'r' in options['content']:
+        progLog.logWrite("Generating Text output - REMOVED.")
         text += "Entries Removed\n"
         for i in range(len(data['removed']['fieldnames'])):
             if data['removed']['fieldnames'][i] in options['reportfields']:
@@ -360,6 +403,7 @@ def buildText(data, options):
             text += '\n'
 
     if 's' in options['content']:
+        progLog.logWrite("Generating Text output - SAME.")
         text += "Entries Unchanged\n"
         for i in range(len(data['same']['fieldnames'])):
             if data['same']['fieldnames'][i] in options['reportfields']:
@@ -378,6 +422,7 @@ def buildCSV(data, options):
     text=''
     
     if 'a' in options['content']:
+        progLog.logWrite("Generating CSV output - ADDED.")
         text = "Entries Added,\n"
         for i in range(len(data['added']['fieldnames'])):
             if data['added']['fieldnames'][i] in options['reportfields']:
@@ -390,6 +435,7 @@ def buildCSV(data, options):
             text += '\n'
 
     if 'r' in options['content']:
+        progLog.logWrite("Generating CSV output - REMOVED.")
         text += "Entries Removed,\n"
         for i in range(len(data['removed']['fieldnames'])):
             if data['removed']['fieldnames'][i] in options['reportfields']:
@@ -402,6 +448,7 @@ def buildCSV(data, options):
             text += '\n'
 
     if 's' in options['content']:
+        progLog.logWrite("Generating CSV output - SAME.")
         text += "Entries Unchanged,\n"
         for i in range(len(data['same']['fieldnames'])):
             if data['same']['fieldnames'][i] in options['reportfields']:
@@ -418,16 +465,18 @@ def buildCSV(data, options):
 
 # Write the output report(s) to files, if specified on the command line
 def writeFiles(data, options):
+    progLog.logWrite("Writing reports to files.")
     for item in options['write'].items():
-        if item[1] == 'text':                   # Convert to text
+        if item[1].lower() == 'text':                   # Convert to text
             output = buildText(data, options)
-        elif item[1] == 'html':                 # Convert to HTML
+        elif item[1].lower() == 'html':                 # Convert to HTML
             output = buildHTML(data, options)
-        elif item[1] == 'csv':                  # Convert to CSV
+        elif item[1].lower() == 'csv':                  # Convert to CSV
             output = buildCSV(data, options)
         else:                                   # Data is already in JSON format internally
             output = data
 
+        progLog.logWrite("Writing output {} to {} file.".format(item[0], item[1].lower()))
         outfile = open(item[0],'w')
         if item[1].lower() in ['text','html','csv']:   # Write data to file    
             outfile.write(output)
@@ -437,6 +486,7 @@ def writeFiles(data, options):
 
 # Send the report out via email
 def sendEmail(data, options, inifile):
+    progLog.logWrite("Sending email")
     try:
         serverconnect = smtplib.SMTP(options['email']['server'],options['email']['port'])
         if options['email']['encryption'] != None:   # Do we need to use SSL/TLS?
@@ -486,6 +536,7 @@ def sendEmail(data, options, inifile):
 # Fields are prer-selected here, not based on the [fields] section of the .ini file
 # See the documentation for an approproate GROK pattern to use with your syslog or SIEM system.
 def sendSyslog(data, options):
+    progLog.logWrite("Sending log to syslog server: [{}:{}]".format(options['syslog']['server'], options['syslog']['port']))
     try:
         logger = logging.getLogger()
         logger.setLevel(logging.INFO)
@@ -518,6 +569,7 @@ def sendSyslog(data, options):
 
 # Print the full arcomp run history, including run_ids and dates. Used to find a specific run_id to delete from the database with the -R option
 def printHistory():
+    progLog.logWrite("Printing run_id history")
     curs = db.execSqlStmt("SELECT DISTINCT run_id FROM history ORDER BY run_id ASC")
     runids = curs.fetchall()
     for i in range(len(runids)):
@@ -526,6 +578,7 @@ def printHistory():
     return
 
 def deleteRunID(runid):
+    progLog.logWrite("Deleting run_id: [{}]".format(runid))
     curs = db.execSqlStmt("SELECT run_id FROM history WHERE run_id = '{}'".format(runid))
     result = curs.fetchall()
     if len(result) == 0:
@@ -554,7 +607,14 @@ if __name__ == "__main__":
     options['datapath'] = iniFile.getIniOption('main','datapath')            # Path to data files. If Null, assume it's in the same directory as this program
     if options['datapath'] is None:                                         # Use default data path
         options['datapath'] = options['progpath']
-    options['reportfields'] = list({key: value for key, value in iniFile.getIniSection('fields').items() if value == 'True'})     # List of fields to use in report output. From .ini file [report] section
+    if options['datapath'][-1:] == '\\':
+        options['datapath'] = options['datapath'][:-1]                      # Remove any trailing '\' since the rest of the program assumes it's not there
+    options['reportfields'] = list({key: value for key, value in iniFile.getIniSection('fields').items() if value.lower() == 'true'})     # List of fields to use in report output. From .ini file [report] section
+
+    # Open log file
+    progLog = Logger(options['datapath'] + '\\arcomp.log')
+    progLog.logWrite('program path=[{}] run_id=[{}] version=[{}]'.format(options['progpath'], options['run_id'], options['version']))
+    progLog.logWrite('autorunspath=[{}] datapath=[{}] reportfields=[{}]'.format(options['autorunspath'], options['datapath'], options['reportfields']))
 
     # Get and process command line arguments
     progArgs = processCmdLineArgs()
@@ -565,8 +625,8 @@ if __name__ == "__main__":
         for i in range(len(progArgs.write)):
             fname,type = progArgs.write[i].split(",")                   # Exception check Here
             if type.lower() not in ['text','html','csv','json']:
-                print("Command line error, -w option. Invalid type: {}. Filetype must be 'text', 'html', 'csv', or 'json'".format(type))
-                exit(1)
+                progLog.logWrite("Command line error, -w option. Invalid type: {}. Filetype must be 'text', 'html', 'csv', or 'json'".format(type))
+                oops("Command line error, -w option. Invalid type: {}. Filetype must be 'text', 'html', 'csv', or 'json'".format(type))
             options['write'][fname] = type.lower()
     
     if progArgs.syslog is not None:     # Output to syslog specified
@@ -584,8 +644,8 @@ if __name__ == "__main__":
     else:
         for i in range(len(progArgs.content)):
             if progArgs.content[i] not in ['a','r','s']:
-                print("--content option: invalid option: '{}'. Must be a combination of 'a', 'r', and/or 's'".format(progArgs.content[i]))
-                exit(1)
+                progLog.logWrite("--content option: invalid option: '{}'. Must be a combination of 'a', 'r', and/or 's'".format(progArgs.content[i]))
+                oops("--content option: invalid option: '{}'. Must be a combination of 'a', 'r', and/or 's'".format(progArgs.content[i]))
         options['content'] = progArgs.content
 
     # Check for email options
@@ -601,11 +661,15 @@ if __name__ == "__main__":
     
     # Need to just print history?
     if progArgs.runhistory is True:
+        progLog.logWrite("Printing run history.")
         printHistory()
+        db.dbCommit()
+        db.dbClose()
         exit(0)
 
     # Need to delete a run_id?
     if progArgs.runremove is not None:
+        progLog.logWrite("Removing run_id [{}].".format(progArgs.runremove))
         deleteRunID(progArgs.runremove)
         db.dbCommit()
         db.dbClose()
@@ -617,6 +681,7 @@ if __name__ == "__main__":
     # Are we processing a command-line file or letting autorunsc.exe do its thing?
     if options['file'] is None:                 # There's no specific file to process. Execute autorunsc.exe and collect output file
         cmdline = '\"\"{}\" -a * -c -h -s -v -vt -o \"\"{}\\aroutput.csv\" -nobanner'.format(options['autorunspath'],options['datapath'])  
+        progLog.logWrite("Running autoruns. Command line=[{}].".format(cmdline))
         result = os.system(cmdline)
         options['file'] = '{}\\aroutput.csv'.format(options['datapath'])
 
@@ -642,6 +707,7 @@ if __name__ == "__main__":
         sendSyslog(reportData, options)
 
     # Close database and exit
+    progLog.logWrite("Closing program.")
     db.dbCommit()
     db.dbClose()
 

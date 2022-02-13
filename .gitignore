@@ -17,3 +17,5 @@ outfile.json
 outfile.txt
 .vs/arcomp/v16/.suo
 production/
+arcomp.log
+arclaunch.bat
