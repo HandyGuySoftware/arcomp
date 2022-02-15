@@ -1,8 +1,4 @@
 # arcomp
-Arcomp is a Python script to compare differences in Autoruns output between runs.
-
-# Description
-
 Arcomp is a Python script that is used in conjunction with the [Autoruns utility](https://docs.microsoft.com/en-us/sysinternals/downloads/Autoruns) from the Microsoft [Sysinternals package](https://docs.microsoft.com/en-us/sysinternals/). Arcomp compares the results of successive Autoruns executions and reports on what's been added, removed, and unchanged between runs. Some of arcomp's features include:
 
 - Automatically collating and reporting on changes between Autoruns executions
@@ -24,8 +20,10 @@ To install arcomp, do the following:
 2. Download and install Autoruns on your Windows computer. Instructions are [here](https://docs.microsoft.com/en-us/sysinternals/downloads/autoruns).
 3. Clone the [arcomp GitHub repository](https://github.com/HandyGuySoftware/arcomp) or download the files to a directory on your local Windows machine.
 4. Copy the arcomp.ini.EXAMPLE file to arcomp.ini and edit the options as appropriate
-4. (Optional) Copy the arclaunch.bat.EXAMPLE file to arclaunch.bat and edit the options at the top of the file as appropriate
-5. Run arcomp.py using the appropriate command line options. Alternately, modify the arclaunch.bat file with the appropriate options and use it to run arcomp.
+5. (Optional) Copy the arclaunch.bat.EXAMPLE file to arclaunch.bat and edit the variables at the top of the file as appropriate
+6. Either:
+   1. Run arcomp.py using the desired command line options, **or**
+   2. Use arclaunch.bat to run arcomp.py.
 
 # Usage
 
@@ -83,7 +81,7 @@ This GROK string has been tested and used on an Elastic (ELK) stack. Some modifi
 # Known Issues and Limitations
 
 - Error handling and logging is limited and sketchy. This will improve as the code matures.
-- The program puts out a high volume of syslog messages in a short period of time. This may overwhelm slower syslog/SIEM servers and  messages may get dropped. Some sort of rate limiting function may be added in the future.
+- The program puts out a high volume of syslog messages in a short period of time. This may overwhelm slower syslog/SIEM servers and messages may get dropped as a result. Some sort of rate limiting function may be added in the future to address this.
 
 # Distribution, Support, and Feedback
 

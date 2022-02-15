@@ -63,6 +63,7 @@ class Logger:
     def logWrite(self, msg):
         if self.logfile is not None:
             self.logfile.write('[{}][run_id:{}][DEBUG] {}\n'.format(datetime.now().isoformat(), options['run_id'], msg))
+            self.logfile.flush()
         return None
 
     def logClose(self):
@@ -477,7 +478,7 @@ def writeFiles(data, options):
             output = data
 
         progLog.logWrite("Writing output {} to {} file.".format(item[0], item[1].lower()))
-        outfile = open(item[0],'w')
+        outfile = open('{}\\{}'.format(options['datapath'], item[0]),'w')
         if item[1].lower() in ['text','html','csv']:   # Write data to file    
             outfile.write(output)
         else:                                   # Json data requires special call
