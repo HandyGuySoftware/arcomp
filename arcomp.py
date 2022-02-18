@@ -1,7 +1,7 @@
 ######
 #
 # Program name: arcomp.py
-# Purpose:      Compare the results of two autoruns executions to find changes in autoruns entries on Windows systems
+# Purpose:      Compare the results of two Autoruns executions to find changes in Autoruns entries on Windows systems
 #               Based on Autoruns for Widows by Mark Russinovich on Windows Sysinternals
 # Author:       Stephen Fried for Handy Guy Software
 # 
@@ -33,7 +33,7 @@ import logging
 from logging.handlers import SysLogHandler
 
 # Global program info. Do Not Change.
-version = ['1.0.0','Beta 1']
+version = ['1.0.0','Release']
 gitSourceUrl = 'https://github.com/HandyGuySoftware/arcomp'
 copyright = 'Copyright (c) 2022 Stephen Fried for Handy Guy Software. Released under MIT license. See LICENSE file for details'
 
@@ -43,8 +43,8 @@ def oops(msg):
     if 'db' in vars():
         db.dbRollback()
         db.dbClose()
-    if 'log' in vars():
-        log.logClose()
+    if 'progLog' in vars():
+        progLog.logClose()
     exit(1)
 
 class Logger:
@@ -67,9 +67,9 @@ class Logger:
         return None
 
     def logClose(self):
-        if logfile is not None:
+        if self.logfile is not None:
             self.logfile.close()
-        logfile = None
+        self.logfile = None
         return None
 
 # Class to manage .ini file handling
@@ -85,7 +85,7 @@ class IniOptions:
         try:
             self.iniParser = configparser.ConfigParser(interpolation=None)
             self.iniParser.read(iniFileSpec)
-        except iniParser.ParsingError as err:
+        except self.iniParser.ParsingError as err:
             return False
         return True
 
@@ -610,7 +610,7 @@ if __name__ == "__main__":
         options['datapath'] = options['progpath']
     if options['datapath'][-1:] == '\\':
         options['datapath'] = options['datapath'][:-1]                      # Remove any trailing '\' since the rest of the program assumes it's not there
-    options['reportfields'] = list({key: value for key, value in iniFile.getIniSection('fields').items() if value.lower() == 'true'})     # List of fields to use in report output. From .ini file [report] section
+    options['reportfields'] = list({key: value for key, value in iniFile.getIniSection('fields').items() if value.lower() == 'true'})     # List of fields from .ini file [report] section to use in report output
 
     # Open log file
     progLog = Logger(options['datapath'] + '\\arcomp.log')
@@ -622,24 +622,23 @@ if __name__ == "__main__":
     options['file'] = progArgs.file
 
     if progArgs.write is not None:      # output files specified on the command line
-        options['write'] = {}
+        options['write'] = {}           # Dictionary of output files to write to
         for i in range(len(progArgs.write)):
-            fname,type = progArgs.write[i].split(",")                   # Exception check Here
+            fname,type = progArgs.write[i].split(",")
             if type.lower() not in ['text','html','csv','json']:
                 progLog.logWrite("Command line error, -w option. Invalid type: {}. Filetype must be 'text', 'html', 'csv', or 'json'".format(type))
                 oops("Command line error, -w option. Invalid type: {}. Filetype must be 'text', 'html', 'csv', or 'json'".format(type))
             options['write'][fname] = type.lower()
     
-    if progArgs.syslog is not None:     # Output to syslog specified
+    if progArgs.syslog is not None:     # Output to syslog is specified. Format is <server>[:port]
         options['syslog'] = {}
         syslogspec = progArgs.syslog.split(':')
         options['syslog']['server'] = syslogspec[0]
-        if len(syslogspec) == 1:                # No port specified. Use default of 514
-            options['syslog']['port'] = 514
-        else:
+        options['syslog']['port'] = 514         # Syslog default port
+        if len(syslogspec) == 2:                # Port specified
             options['syslog']['port'] = int(syslogspec[1])
 
-    # Check if limiting the added, removed, or same seciotns in the report
+    # Check if specifying 'added,' 'removed,' or 'same' sections in the report
     if progArgs.content is None:
         options['content'] = 'ars'
     else:
@@ -650,7 +649,6 @@ if __name__ == "__main__":
         options['content'] = progArgs.content
 
     # Check for email options
-    # The password is not read until the email is being sent, to limit the amount of time it is in memory.
     options['email'] = iniFile.getIniSection('email')
     options['email']['send'] = progArgs.email
     options['email']['password'] = None                 # Do not store password until it's necessary to send email
@@ -658,7 +656,7 @@ if __name__ == "__main__":
     # Open and prep database
     db = Database(options['datapath'] + '\\arcompdata.db')
     db.dbSetup()
-    options['dbfields'] = db.getTableFieldNames('history')
+    options['dbfields'] = db.getTableFieldNames('history')      # Get names of the fields in the history table. This will come in handy later.
     
     # Need to just print history?
     if progArgs.runhistory is True:
@@ -676,7 +674,7 @@ if __name__ == "__main__":
         db.dbClose()
         exit(0)
 
-    # Get last run_id
+    # Get last run_id. This will be used to compare against the current run_id.
     options['last_runid'] = getLastRunId()
 
     # Are we processing a command-line file or letting autorunsc.exe do its thing?
