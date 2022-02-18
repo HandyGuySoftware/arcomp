@@ -1,6 +1,6 @@
 [main]
-autorunspath=C:\Path\to\autorunsc.exe\autorunsc.exe
-datapath = C:\Path\to\arcomp\data\storage
+autorunspath=C:\Path\to\autorunsc.exe
+datapath = C:\Path\to\arcomp.py
 
 [email]
 server = smtp.gmail.com
