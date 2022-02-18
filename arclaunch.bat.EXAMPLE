@@ -1,0 +1,11 @@
+echo off
+
+REM ***** Set these variables to the appropriate values
+set PYTHONPATH=C:\path\to\python.exe
+set ARCOMPPATH=C:\path\to\arcomp.py
+set OPTIONS=-w outfile.html,html
+
+REM ***** DO NOT change anything below here. Let the program do its thing
+set ARCDRIVE=%ARCOMPPATH:~0,2%
+%ARCDRIVE%
+%PYTHONPATH% %ARCOMPPATH% %OPTIONS%
