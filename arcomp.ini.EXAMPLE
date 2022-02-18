@@ -5,14 +5,13 @@ datapath = C:\Path\to\arcomp\data\storage
 [email]
 server = smtp.gmail.com
 port = 587
-encryption = tls
+encryption = true
 account = youraccount@gmail.com
 password = yourpassword
 sender = youraccount@gmail.com
 sendername = Arcomp Report Service
 receiver = youraccount@gmail.com
-authentication = basic
-subject = AutoRuns Comparison Report
+subject = AutoRuns Comparison Report for mysystem
 
 [fields]
 run_id = True
@@ -24,8 +23,8 @@ enabled = True
 category = True
 profile = True
 description = True
-signer = 
-company = 
+signer = True
+company = True
 imagepath = True
 version = 
 launchstring = True
