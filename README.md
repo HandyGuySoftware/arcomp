@@ -16,7 +16,7 @@ Arcomp is a Python script that is used in conjunction with the [Autoruns utility
 
 To install arcomp, do the following:
 
-1. Download and install Python on your Windows computer. Instructions are [here](https://www.python.org/downloads/).
+1. Download and install Python 3.0 (or higher) on your Windows computer. Instructions are [here](https://www.python.org/downloads/).
 2. Download and install Autoruns on your Windows computer. Instructions are [here](https://docs.microsoft.com/en-us/sysinternals/downloads/autoruns).
 3. Clone the [arcomp GitHub repository](https://github.com/HandyGuySoftware/arcomp) or download the files to a directory on your local Windows machine.
 4. Copy the arcomp.ini.EXAMPLE file to arcomp.ini and edit the options as appropriate
