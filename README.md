@@ -75,7 +75,9 @@ The [fields] section indicates what fields to include in the text, HTML, and CSV
 This section should contain a list of verified signers that can safely be ignored in the reporting results. The lines in this field are case sensitive and must match *exactly* the data as it appears in Autoruns. An example of this section is:
 
 `[ignore_signer]`
+
 `(Verified) Microsoft Windows`
+
 `(Verified) Microsoft Corporation`
 
 ## [ignore_company] section
@@ -83,9 +85,14 @@ This section should contain a list of verified signers that can safely be ignore
 This section should contain a list of company names that can safely be ignored in the reporting results. The lines in this field are case sensitive and must match *exactly* the data as it appears in Autoruns. An example of this section is:
 
 `[ignore_company]`
+
 `Adobe Systems, Incorporated`
+
 `Adobe Systems Incorporated`
+
 `Microsoft Corporation`
+
+
 
 Note: if an data line has *either* an ignored signer *or* an ignored company, the line will be ignored.
 
