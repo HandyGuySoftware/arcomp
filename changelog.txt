@@ -1,6 +1,11 @@
 Arcomp Change Log
 -----------------
 
+1.0.1
+-----
+- Added [ignore_signers] and [ignore_company] sections to .ini file to help filter out results (Issues #6 & #7)
+- Documentation Updates
+
 1.0.0
 -----
 - Initial release

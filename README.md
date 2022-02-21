@@ -31,13 +31,13 @@ To install arcomp, do the following:
 
 | Option                        | Description                                                  |
 | ----------------------------- | ------------------------------------------------------------ |
-| -f \<filename>                | Use \<filename> as the data input to the program. If the -f option is not used, the program will execute Autoruns and use the output of that run as input to arcomp. \<Filename> must be in Comma-Separated Value (CSV) format and must be created by Autoruns using the following command line options:<br /><br /> `'autorunsc.exe -a * -c -h -s -v -vt -o \<filename.csv> -nobanner'` |
-| -w \<write-file>,\<type>      | Write the output report to a Text, HTML, CSV, or JSON file. <br />\<writefile> is the name of the file where the report will be written. <br /><br />\<type> is one of 'html', 'text', 'csv', or 'json'<br /><br />The -f option can be specified multiple times to create more than one format of output report. For example:<br /><br />`arcomp.py -w output.txt,text -w output.html,html -w output.json,json` |
-| -e                            | Send the report via email. Email parameters are specified in the [email] section of the arcomp.ini file. |
-| -s \<syslog_server>[:\<port>] | Send the report to a syslog or SIEM server. \<syslog_server> is the IP address or fully-qualified domain name of the server. [:\<port>] may be specified if the syslog server uses a non-standard port. If [:\<port>] is not specified, the default port is 514. |
 | -c \<a\|r\|s>                 | Specify the sections of the data to send in the report. Arcomp analyzes what information has been added ('a'), removed ('r'), or stayed the same ('s') between Autoruns executions. The resulting report will only include the sections specified by the -r option. By default, all sections are included in the report. However, since the majority of Autoruns entries do not change between executions, most users select only the 'a' and 'r' entries to see only what's been added or removed.<br /><br />Note: The -c option only affects the output for the Text, HTML, and CSV outputs from arcomp. The JSON and syslog outputs always contain the full data ('a', 'r', and 's'). |
+| -e                            | Send the report via email. Email parameters are specified in the [email] section of the arcomp.ini file. |
+| -f \<filename>                | Use \<filename> as the data input to the program. If the -f option is not used, the program will execute Autoruns and use the output of that run as input to arcomp. \<Filename> must be in Comma-Separated Value (CSV) format and must be created by Autoruns using the following command line options:<br /><br /> `'autorunsc.exe -a * -c -h -s -v -vt -o \<filename.csv> -nobanner'` |
 | -r                            | Outputs the full arcomp run history, including the Run ID and the data/time the run was executed. The Run ID can be used to remove a run from the database using the -R option. |
 | -R                            | Remove a run from the arcomp database. \<run_id> is the Run ID to remove. All entries in the database for that run_id will be deleted. |
+| -s \<syslog_server>[:\<port>] | Send the report to a syslog or SIEM server. \<syslog_server> is the IP address or fully-qualified domain name of the server. [:\<port>] may be specified if the syslog server uses a non-standard port. If [:\<port>] is not specified, the default port is 514. |
+| -w \<write-file>,\<type>      | Write the output report to a Text, HTML, CSV, or JSON file. <br />\<writefile> is the name of the file where the report will be written. <br /><br />\<type> is one of 'html', 'text', 'csv', or 'json'<br /><br />The -f option can be specified multiple times to create more than one format of output report. For example:<br /><br />`arcomp.py -w output.txt,text -w output.html,html -w output.json,json` |
 
 # The arcomp.ini file
 
@@ -69,6 +69,25 @@ The [email] section is only used if the program is run with the -e option. Other
 ## [fields] section
 
 The [fields] section indicates what fields to include in the text, HTML, and CSV reports. This section has no effect on the JSON or syslog outputs. To include a field on the report, set the entry for that field to 'True'. To leave a field out of the report, set the entry to 'False' or leave it blank.
+
+## [ignore_signers] section
+
+This section should contain a list of verified signers that can safely be ignored in the reporting results. The lines in this field are case sensitive and must match *exactly* the data as it appears in Autoruns. An example of this section is:
+
+`[ignore_signer]`
+`(Verified) Microsoft Windows`
+`(Verified) Microsoft Corporation`
+
+## [ignore_company] section
+
+This section should contain a list of company names that can safely be ignored in the reporting results. The lines in this field are case sensitive and must match *exactly* the data as it appears in Autoruns. An example of this section is:
+
+`[ignore_company]`
+`Adobe Systems, Incorporated`
+`Adobe Systems Incorporated`
+`Microsoft Corporation`
+
+Note: if an data line has *either* an ignored signer *or* an ignored company, the line will be ignored.
 
 # Syslog Parsing
 

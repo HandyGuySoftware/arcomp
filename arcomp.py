@@ -33,7 +33,7 @@ import logging
 from logging.handlers import SysLogHandler
 
 # Global program info. Do Not Change.
-version = ['1.0.0','Release']
+version = ['1.0.1','Beta 1']
 gitSourceUrl = 'https://github.com/HandyGuySoftware/arcomp'
 copyright = 'Copyright (c) 2022 Stephen Fried for Handy Guy Software. Released under MIT license. See LICENSE file for details'
 
@@ -83,12 +83,14 @@ class IniOptions:
 
     def openIniFile(self, iniFileSpec):
         try:
-            self.iniParser = configparser.ConfigParser(interpolation=None)
+            self.iniParser = configparser.ConfigParser(interpolation=None, allow_no_value=True)
+            self.iniParser.optionxform = str         # Set to read values in .ini file as case-sensitive
             self.iniParser.read(iniFileSpec)
         except self.iniParser.ParsingError as err:
             return False
+        
         return True
-
+    
     # Retrieve an individial value from '[secton] option='
     def getIniOption(self, section, option):
         if self.iniParser.has_option(section, option):
@@ -103,6 +105,12 @@ class IniOptions:
     # Return an entire [section] from the .ini file as a dictionary
     def getIniSection(self, section):
         return dict(self.iniParser.items(section))
+
+    def hasSection(self, section):
+        if self.iniParser.has_section(section):
+            return True
+        else:
+            return False
 
 # SQLite database management class
 class Database:
@@ -179,13 +187,13 @@ def processCmdLineArgs():
     # Parse command line options with ArgParser library
     argParser = argparse.ArgumentParser(description='arcomp options.')
 
-    argParser.add_argument("-f","--file", help="Specify a .csv file to load into system. Must be created using 'autorunsc.exe -a * -c -h -s -u -v -vt -o <filename>'", action="store")
-    argParser.add_argument("-w","--write", help="Write report output to a file. Format for argument is '-w <fname>,<type>'. Valid types are 'text', 'html', 'csv', and 'json'", action="append")
+    argParser.add_argument("-c","--content", type=str, help="Specify sections to include in the report ('a'dd, 'r'emove, or 's'ame)")
     argParser.add_argument("-e","--email", help="Send report to an email account. Make sure the [email] section of the arcomp.ini file is filled in properly.", action="store_true")
-    argParser.add_argument("-s","--syslog", help="Send output to syslog server. Format is '-s <IP address or DNS name>[:port]'. Default port is 514", action="store")
-    argParser.add_argument("-c", "--content", type=str, help="Specify sections to include in the report ('a'dd, 'r'emove, or 's'ame)")
+    argParser.add_argument("-f","--file", help="Specify a .csv file to load into system. Must be created using 'autorunsc.exe -a * -c -h -s -u -v -vt -o <filename>'", action="store")
     argParser.add_argument("-r", "--runhistory", help="Print full history of autorunsc results.", action="store_true")
     argParser.add_argument("-R", "--runremove", help="Remove a specific <run_id> from the database.", action="store")
+    argParser.add_argument("-s","--syslog", help="Send output to syslog server. Format is '-s <IP address or DNS name>[:port]'. Default port is 514", action="store")
+    argParser.add_argument("-w","--write", help="Write report output to a file. Format for argument is '-w <fname>,<type>'. Valid types are 'text', 'html', 'csv', and 'json'", action="append")
     try:
         cmdLineArgs = argParser.parse_args()
     except:
@@ -276,17 +284,31 @@ def compareAutoRunData(options):
 def generateDictFromSql(sql):
     progLog.logWrite("generateDictFromSql(\'{}\')".format(sql))
 
-    result = {}
+    finalResult = {}        # Final values from SQL query
+    
     db.row_factory = sqlite3.Row
     curs = db.execSqlStmt(sql)
-    flds = [description[0] for description in curs.description]     # get field names
+    dbFlds = [description[0] for description in curs.description]     # get field names
+ 
+    # Get index of 'signer' & 'company' fields
+    signerIndex = dbFlds.index('signer')
+    companyIndex = dbFlds.index('company')
 
-    for r in curs:
-       result[r[2]] = {}
-       for i in range(len(flds)):
-            result[r[2]][flds[i]] = r[i]
+    # Get the field number of the 'key' field
+    keyFieldIndex = dbFlds.index('keyword')
 
-    return flds, result
+    # Loop through db results
+    for resultRow in curs:
+
+        # If signer is on the ignore_signer list or company is on the ignore_company list, skip this row
+        if resultRow[signerIndex] in options['ignore_signer'] or resultRow[companyIndex] in options['ignore_company']:
+            continue
+
+        finalResult[resultRow[keyFieldIndex]] = {}      
+        for i in range(len(dbFlds)):
+            finalResult[resultRow[keyFieldIndex]][dbFlds[i]] = resultRow[i]
+
+    return dbFlds, finalResult
 
 # Generate dictionaries for the three types of results ('ADDED', 'REMOVED', and 'SAME')
 def generateReport(options):
@@ -611,6 +633,14 @@ if __name__ == "__main__":
     if options['datapath'][-1:] == '\\':
         options['datapath'] = options['datapath'][:-1]                      # Remove any trailing '\' since the rest of the program assumes it's not there
     options['reportfields'] = list({key: value for key, value in iniFile.getIniSection('fields').items() if value.lower() == 'true'})     # List of fields from .ini file [report] section to use in report output
+
+    # Get signers and companies to ignore
+    options['ignore_signer'] = {}
+    if iniFile.hasSection('ignore_signer'):
+        options['ignore_signer'] = iniFile.getIniSection('ignore_signer')
+    options['ignore_company'] = {}
+    if iniFile.hasSection('ignore_company'):
+        options['ignore_company'] = iniFile.getIniSection('ignore_company')
 
     # Open log file
     progLog = Logger(options['datapath'] + '\\arcomp.log')
