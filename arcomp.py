@@ -302,6 +302,7 @@ def generateDictFromSql(sql):
 
         # If signer is on the ignore_signer list or company is on the ignore_company list, skip this row
         if resultRow[signerIndex] in options['ignore_signer'] or resultRow[companyIndex] in options['ignore_company']:
+            progLog.logWrite("Skipping row. Key:[{}] signer:[{}]  company:[{}]".format(resultRow[keyFieldIndex], resultRow[signerIndex], resultRow[companyIndex]))
             continue
 
         finalResult[resultRow[keyFieldIndex]] = {}      
