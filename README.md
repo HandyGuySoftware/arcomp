@@ -98,7 +98,7 @@ Note: if an data line has *either* an ignored signer *or* an ignored company, th
 
 # Syslog Parsing
 
-Arcomp can send output to a syslog or SIEM server using the -s option. The following GROK string can be used to parse the arcomp feed:
+Arcomp can send output to a syslog or SIEM server using the -s option. The following Grok string can be used to parse the arcomp feed:
 
 `"\<%{NUMBER:UNWANTED}\>\[%{DATA:runtime}\]\[%{DATA:hostname}\]\[%{DATA:loglevel}\]\[%{DATA:run_id}\]\[%{DATA:action}\](?<location>[^|]*)\|(?<entry>[^|]*)\|(?<description>[^|]*)\|(?<signer>[^|]*)\|(?<company>[^|]*)\|(?<imagepath>[^|]*)\|%{GREEDYDATA:launchstring}"`
 

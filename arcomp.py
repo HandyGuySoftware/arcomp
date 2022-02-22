@@ -33,7 +33,7 @@ import logging
 from logging.handlers import SysLogHandler
 
 # Global program info. Do Not Change.
-version = ['1.0.1','Beta 1']
+version = ['1.0.1','Beta 2']
 gitSourceUrl = 'https://github.com/HandyGuySoftware/arcomp'
 copyright = 'Copyright (c) 2022 Stephen Fried for Handy Guy Software. Released under MIT license. See LICENSE file for details'
 
