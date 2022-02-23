@@ -659,6 +659,9 @@ if __name__ == "__main__":
     progLog.logWrite('program path=[{}] run_id=[{}] version=[{}]'.format(options['progpath'], options['run_id'], options['version']))
     progLog.logWrite('autorunspath=[{}] datapath=[{}] reportfields=[{}]'.format(options['autorunspath'], options['datapath'], options['reportfields']))
 
+    progLog.logWrite("Skipping Companies: [{}]".format(options['ignore_company']))
+    progLog.logWrite("Skipping Signers: [{}]".format(options['ignore_signer']))
+
     # Get and process command line arguments
     progArgs = processCmdLineArgs()
     options['file'] = progArgs.file
