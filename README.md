@@ -70,7 +70,7 @@ The [email] section is only used if the program is run with the -e option. Other
 
 The [fields] section indicates what fields to include in the text, HTML, and CSV reports. This section has no effect on the JSON or syslog outputs. To include a field on the report, set the entry for that field to 'True'. To leave a field out of the report, set the entry to 'False' or leave it blank.
 
-## [ignore_signers] section
+## [ignore_signer] section
 
 This section should contain a list of verified signers that can safely be ignored in the reporting results. The lines in this field are case sensitive and must match *exactly* the data as it appears in Autoruns. An example of this section is:
 

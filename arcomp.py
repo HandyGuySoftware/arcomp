@@ -33,7 +33,7 @@ import logging
 from logging.handlers import SysLogHandler
 
 # Global program info. Do Not Change.
-version = ['1.0.1','Beta 2']
+version = ['1.0.1','Release']
 gitSourceUrl = 'https://github.com/HandyGuySoftware/arcomp'
 copyright = 'Copyright (c) 2022 Stephen Fried for Handy Guy Software. Released under MIT license. See LICENSE file for details'
 
@@ -52,7 +52,7 @@ class Logger:
 
     def __init__(self, fname):
         try:
-            self.logfile = open(fname,'a')
+            self.logfile = open(fname,'w')
             self.logWrite("Arcomp logfile - open")
         except (OSError, IOError):
             e = sys.exc_info()[0]
