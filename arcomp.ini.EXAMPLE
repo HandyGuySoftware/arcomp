@@ -37,3 +37,11 @@ pesha256 =
 sha256 = 
 imp = 
 
+[ignore_signer]
+(Verified) Microsoft Windows
+(Verified) Microsoft Corporation
+(Verified) Google LLC
+(Verified) Intel Corporation
+
+[ignore_company]
+
